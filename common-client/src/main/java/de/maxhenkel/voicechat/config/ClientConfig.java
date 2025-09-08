@@ -2,29 +2,42 @@ package de.maxhenkel.voicechat.config;
 
 import com.sun.jna.Platform;
 import de.maxhenkel.configbuilder.ConfigBuilder;
+import de.maxhenkel.configbuilder.MigratableConfig;
 import de.maxhenkel.configbuilder.entry.ConfigEntry;
+import de.maxhenkel.configbuilder.entry.DoubleConfigEntry;
+import de.maxhenkel.voicechat.Voicechat;
 import de.maxhenkel.voicechat.integration.freecam.FreecamMode;
 import de.maxhenkel.voicechat.intercompatibility.CommonCompatibilityManager;
 import de.maxhenkel.voicechat.voice.client.GroupPlayerIconOrientation;
 import de.maxhenkel.voicechat.voice.client.MicrophoneActivationType;
+import de.maxhenkel.voicechat.voice.client.VolumeManager;
 import de.maxhenkel.voicechat.voice.client.speaker.AudioType;
+import de.maxhenkel.voicechat.voice.common.AudioUtils;
 
 public class ClientConfig {
 
+    private static final int CONFIG_VERSION = 1;
+
+    public ConfigEntry<Integer> configVersion;
     public ConfigEntry<Boolean> onboardingFinished;
-    public ConfigEntry<Double> voiceChatVolume;
+    public DoubleConfigEntry voiceChatVolume;
     public ConfigEntry<Double> voiceActivationThreshold;
-    public ConfigEntry<Double> microphoneAmplification;
+    public ConfigEntry<Boolean> vad;
+    public ConfigEntry<Double> microphoneGain;
+    public ConfigEntry<Boolean> agc;
     public ConfigEntry<MicrophoneActivationType> microphoneActivationType;
     public ConfigEntry<Integer> outputBufferSize;
     public ConfigEntry<Integer> audioPacketThreshold;
-    public ConfigEntry<Integer> deactivationDelay;
+    public ConfigEntry<Integer> voiceDeactivationDelay;
+    public ConfigEntry<Integer> pttDeactivationDelay;
     public ConfigEntry<String> microphone;
     public ConfigEntry<String> speaker;
     public ConfigEntry<Boolean> muted;
     public ConfigEntry<Boolean> disabled;
     public ConfigEntry<Boolean> hideIcons;
-    public ConfigEntry<Boolean> showGroupHUD;
+    public ConfigEntry<Boolean> showNametagIcons;
+    public ConfigEntry<Boolean> showHudIcons;
+    public ConfigEntry<Boolean> showGroupHud;
     public ConfigEntry<Boolean> showOwnGroupIcon;
     public ConfigEntry<Double> groupHudIconScale;
     public ConfigEntry<GroupPlayerIconOrientation> groupPlayerIconOrientation;
@@ -50,21 +63,34 @@ public class ClientConfig {
 
         builder.header(String.format("%s client config v%s", CommonCompatibilityManager.INSTANCE.getModName(), CommonCompatibilityManager.INSTANCE.getModVersion()));
 
+        configVersion = builder
+                .integerEntry("config_version", CONFIG_VERSION,
+                        "The config version - Used for migration",
+                        "WARNING: DO NOT CHANGE THIS VALUE"
+                );
         onboardingFinished = builder
                 .booleanEntry("onboarding_finished", false,
                         "If the voice chat onboarding process has been finished"
                 );
         voiceChatVolume = builder
-                .doubleEntry("voice_chat_volume", 1D, 0D, 2D,
+                .doubleEntry("voice_chat_volume", 1D, 0D, 3D,
                         "The voice chat volume"
                 );
         voiceActivationThreshold = builder
-                .doubleEntry("voice_activation_threshold", -50D, -127D, 0D,
+                .doubleEntry("voice_activation_threshold", -50D, AudioUtils.LOWEST_DB, 0D,
                         "The threshold for the voice activation method (in dB)"
                 );
-        microphoneAmplification = builder
-                .doubleEntry("microphone_amplification", 1D, 0D, 4D,
-                        "The voice chat microphone amplification"
+        vad = builder
+                .booleanEntry("voice_activity_detection", true,
+                        "If automatic voice detection should be used"
+                );
+        microphoneGain = builder
+                .doubleEntry("microphone_gain", 0D, VolumeManager.MIN_GAIN, VolumeManager.MAX_GAIN,
+                        "The voice chat microphone gain"
+                );
+        agc = builder
+                .booleanEntry("automatic_gain_control", true,
+                        "Enable automatic gain control"
                 );
         microphoneActivationType = builder
                 .enumEntry("microphone_activation_type", MicrophoneActivationType.PTT,
@@ -83,9 +109,14 @@ public class ClientConfig {
                         "This prevents audio packets that are only slightly out of order from being discarded",
                         "Set this to 0 to disable"
                 );
-        deactivationDelay = builder
+        voiceDeactivationDelay = builder
                 .integerEntry("voice_deactivation_delay", 25, 0, 100,
                         "The time it takes for the microphone to deactivate when using voice activation",
+                        "A value of 1 means 20 milliseconds, 2=40 ms, 3=60 ms, and so on"
+                );
+        pttDeactivationDelay = builder
+                .integerEntry("ptt_deactivation_delay", 5, 0, 100,
+                        "The time it takes for the microphone to deactivate when using push to talk",
                         "A value of 1 means 20 milliseconds, 2=40 ms, 3=60 ms, and so on"
                 );
         microphone = builder
@@ -110,7 +141,15 @@ public class ClientConfig {
                 .booleanEntry("hide_icons", false,
                         "If the voice chat HUD, group chat HUD, and other in-game icons should be hidden"
                 );
-        showGroupHUD = builder
+        showNametagIcons = builder
+                .booleanEntry("show_nametag_icons", true,
+                        "If the voice chat icons next to player names should be visible"
+                );
+        showHudIcons = builder
+                .booleanEntry("show_hud_icons", true,
+                        "If the voice chat icons on the HUD should be visible"
+                );
+        showGroupHud = builder
                 .booleanEntry("show_group_hud", true,
                         "If the group chat HUD should be visible"
                 );
@@ -162,7 +201,7 @@ public class ClientConfig {
                         "0 = highest quality, 9 = lowest quality"
                 );
         denoiser = builder
-                .booleanEntry("denoiser", false,
+                .booleanEntry("denoiser", true,
                         "If noise suppression should be enabled"
                 );
         runLocalServer = builder
@@ -193,7 +232,7 @@ public class ClientConfig {
         useNatives = builder
                 .booleanEntry("use_natives", true,
                         "If the mod should load native libraries on the client",
-                        "When disabled, the Java Opus implementation will be used instead, the denoiser won't be available, and you won't be able to record the voice chat audio"
+                        "When disabled, the Java Opus implementation will be used instead, automatic gain control won't be available, noise suppression won't be available, and you won't be able to record the voice chat audio"
                 );
         freecamMode = builder
                 .enumEntry("freecam_mode", FreecamMode.CAMERA,
@@ -208,4 +247,28 @@ public class ClientConfig {
                 );
     }
 
+    public static void migrate(MigratableConfig migratableConfig) {
+        String configVersionString = migratableConfig.get("config_version");
+        int configVersion = 0;
+        if (configVersionString != null) {
+            try {
+                configVersion = Integer.parseInt(configVersionString);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+
+        if (configVersion == 0) {
+            migrateFrom0To1(migratableConfig);
+            configVersion = 1;
+        }
+    }
+
+    private static void migrateFrom0To1(MigratableConfig migratableConfig) {
+        Voicechat.LOGGER.info("Migrating config from version 0 to 1");
+
+        migratableConfig.set("config_version", "1");
+        migratableConfig.set("denoiser", "true");
+        migratableConfig.set("voice_activation_threshold", "-50");
+        migratableConfig.set("onboarding_finished", "false");
+    }
 }

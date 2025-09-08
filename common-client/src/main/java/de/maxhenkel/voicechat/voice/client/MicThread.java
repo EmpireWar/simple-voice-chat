@@ -7,9 +7,10 @@ import de.maxhenkel.voicechat.config.ServerConfig;
 import de.maxhenkel.voicechat.debug.VoicechatUncaughtExceptionHandler;
 import de.maxhenkel.voicechat.plugins.ClientPluginManager;
 import de.maxhenkel.voicechat.plugins.PluginManager;
-import de.maxhenkel.voicechat.plugins.impl.opus.OpusManager;
+import de.maxhenkel.voicechat.natives.OpusManager;
 import de.maxhenkel.voicechat.voice.client.microphone.Microphone;
 import de.maxhenkel.voicechat.voice.client.microphone.MicrophoneManager;
+import de.maxhenkel.voicechat.voice.common.AudioUtils;
 import de.maxhenkel.voicechat.voice.common.MicPacket;
 import de.maxhenkel.voicechat.voice.common.NetworkMessage;
 import de.maxhenkel.voicechat.voice.common.Utils;
@@ -30,13 +31,10 @@ public class MicThread extends Thread {
     private Microphone mic;
     @Nullable
     private MicrophoneException microphoneError;
-    private final VolumeManager volumeManager;
     private boolean running;
     private boolean microphoneLocked;
-    private boolean wasWhispering;
     private final OpusEncoder encoder;
-    @Nullable
-    private Denoiser denoiser;
+    private MicrophoneProcessor microphoneProcessor;
 
     private final Consumer<MicrophoneException> onError;
 
@@ -46,16 +44,20 @@ public class MicThread extends Thread {
         this.onError = onError;
         this.running = true;
         this.encoder = OpusManager.createEncoder(connection == null ? ServerConfig.Codec.VOIP.getMode() : connection.getData().getCodec().getMode());
-
-        this.denoiser = Denoiser.createDenoiser();
-        if (denoiser == null) {
-            Voicechat.LOGGER.warn("Denoiser not available");
-        }
-        volumeManager = new VolumeManager();
+        microphoneProcessor = createMicrophoneProcessor();
 
         setDaemon(true);
         setName("MicrophoneThread");
         setUncaughtExceptionHandler(new VoicechatUncaughtExceptionHandler());
+    }
+
+    private MicrophoneProcessor createMicrophoneProcessor() {
+        MicrophoneActivationType type = VoicechatClient.CLIENT_CONFIG.microphoneActivationType.get();
+        if (MicrophoneActivationType.VOICE.equals(type)) {
+            return new VoiceMicrophoneProcessor();
+        } else {
+            return new PTTMicrophoneProcessor();
+        }
     }
 
     public void getError(Consumer<MicrophoneException> onError) {
@@ -72,6 +74,12 @@ public class MicThread extends Thread {
         }
 
         while (running) {
+            MicrophoneActivationType type = VoicechatClient.CLIENT_CONFIG.microphoneActivationType.get();
+            if (!type.equals(microphoneProcessor.getActivationType())) {
+                microphoneProcessor.close();
+                microphoneProcessor = createMicrophoneProcessor();
+            }
+
             if (connection != null) {
                 // Checking here for timeouts, because we don't have any other looping thread
                 connection.checkTimeout();
@@ -80,17 +88,12 @@ public class MicThread extends Thread {
                 }
             }
             if (microphoneLocked || ClientManager.getPlayerStateManager().isDisabled()) {
-                micActivator.stopActivating();
-                wasPTT = false;
-                wasWhispering = false;
                 flushIfNeeded();
 
                 if (!microphoneLocked && ClientManager.getPlayerStateManager().isDisabled()) {
+                    microphoneProcessor.reset();
                     if (mic.isStarted()) {
                         mic.stop();
-                    }
-                    if (denoiser != null) {
-                        denoiser.close();
                     }
                 }
 
@@ -98,21 +101,16 @@ public class MicThread extends Thread {
                 continue;
             }
 
-            short[] audio = pollMic();
-            if (audio == null) {
+            short[] processed = pollProcessedAudio(false);
+            if (processed == null) {
                 continue;
             }
 
-            boolean sentAudio = false;
-            MicrophoneActivationType type = VoicechatClient.CLIENT_CONFIG.microphoneActivationType.get();
-            if (type.equals(MicrophoneActivationType.PTT)) {
-                sentAudio = ptt(audio);
-            } else if (type.equals(MicrophoneActivationType.VOICE)) {
-                sentAudio = voice(audio);
+            if (!microphoneProcessor.shouldTransmitAudio()) {
+                processed = null;
             }
-            if (!sentAudio) {
-                sendAudio(null, ClientManager.getPttKeyHandler().isWhisperDown());
-            }
+
+            sendAudio(processed, microphoneProcessor.isWhispering());
         }
     }
 
@@ -125,17 +123,21 @@ public class MicThread extends Thread {
         if (!mic.isStarted()) {
             mic.start();
         }
-        if (denoiser != null && denoiser.isClosed()) {
-            denoiser = Denoiser.createDenoiser();
-        }
-
-        if (mic.available() < Utils.FRAME_SIZE) {
+        if (mic.available() < AudioUtils.FRAME_SIZE) {
             Utils.sleep(5);
             return null;
         }
-        short[] buff = mic.read();
-        volumeManager.adjustVolumeMono(buff, VoicechatClient.CLIENT_CONFIG.microphoneAmplification.get().floatValue());
-        return denoiseIfEnabled(buff);
+        return mic.read();
+    }
+
+    @Nullable
+    public short[] pollProcessedAudio(boolean testing) {
+        short[] audio = pollMic();
+        if (audio == null) {
+            return null;
+        }
+        microphoneProcessor.process(audio, testing);
+        return audio;
     }
 
     @Nullable
@@ -155,46 +157,6 @@ public class MicThread extends Thread {
             }
         }
         return mic;
-    }
-
-    private final MicActivator micActivator = new MicActivator();
-
-    private boolean voice(short[] audio) {
-        wasPTT = false;
-
-        if (ClientManager.getPlayerStateManager().isMuted()) {
-            micActivator.stopActivating();
-            wasWhispering = false;
-            return false;
-        }
-
-        wasWhispering = ClientManager.getPttKeyHandler().isWhisperDown();
-
-        return micActivator.push(audio, a -> sendAudio(a, wasWhispering));
-    }
-
-    private volatile boolean wasPTT;
-
-    private boolean ptt(short[] audio) {
-        micActivator.stopActivating();
-        if (!ClientManager.getPttKeyHandler().isAnyDown()) {
-            if (wasPTT) {
-                wasPTT = false;
-                wasWhispering = false;
-            }
-            return false;
-        }
-        wasPTT = true;
-        wasWhispering = ClientManager.getPttKeyHandler().isWhisperDown();
-        sendAudio(audio, wasWhispering);
-        return true;
-    }
-
-    public short[] denoiseIfEnabled(short[] audio) {
-        if (denoiser != null && VoicechatClient.CLIENT_CONFIG.denoiser.get()) {
-            return denoiser.denoise(audio);
-        }
-        return audio;
     }
 
     private void flush() {
@@ -247,17 +209,20 @@ public class MicThread extends Thread {
     }
 
     public boolean isTalking() {
-        return !microphoneLocked && (micActivator.isActivating() || wasPTT);
+        return !microphoneLocked && microphoneProcessor.shouldTransmitAudio();
     }
 
     public boolean isWhispering() {
-        return isTalking() && wasWhispering;
+        return microphoneProcessor.isWhispering();
+    }
+
+    public boolean shouldTransmitAudio() {
+        return microphoneProcessor.shouldTransmitAudio();
     }
 
     public void setMicrophoneLocked(boolean microphoneLocked) {
         this.microphoneLocked = microphoneLocked;
-        micActivator.stopActivating();
-        wasPTT = false;
+        microphoneProcessor.reset();
     }
 
     public void close() {
@@ -278,10 +243,12 @@ public class MicThread extends Thread {
             mic.close();
         }
         encoder.close();
-        if (denoiser != null) {
-            denoiser.close();
-        }
+        microphoneProcessor.close();
         flush();
+    }
+
+    public boolean isClosed() {
+        return !running;
     }
 
     private final AtomicLong sequenceNumber = new AtomicLong();

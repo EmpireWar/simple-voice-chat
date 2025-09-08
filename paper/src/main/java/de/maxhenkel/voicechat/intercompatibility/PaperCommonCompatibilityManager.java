@@ -20,8 +20,10 @@ import org.bukkit.Bukkit;
 import org.bukkit.craftbukkit.CraftServer;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerHideEntityEvent;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerShowEntityEvent;
 import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.event.server.ServerLoadEvent;
 
@@ -29,6 +31,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class PaperCommonCompatibilityManager extends CommonCompatibilityManager implements Listener {
@@ -38,6 +41,8 @@ public class PaperCommonCompatibilityManager extends CommonCompatibilityManager 
     private final List<Consumer<CommandDispatcher<CommandSourceStack>>> registerServerCommandsEvents;
     private final List<Consumer<ServerPlayer>> playerLoggedInEvents;
     private final List<Consumer<ServerPlayer>> playerLoggedOutEvents;
+    private final List<BiConsumer<ServerPlayer, ServerPlayer>> playerHideEvents;
+    private final List<BiConsumer<ServerPlayer, ServerPlayer>> playerShowEvents;
     private final List<Consumer<ServerPlayer>> voicechatConnectEvents;
     private final List<Consumer<ServerPlayer>> voicechatCompatibilityCheckSucceededEvents;
     private final List<Consumer<UUID>> voicechatDisconnectEvents;
@@ -48,6 +53,8 @@ public class PaperCommonCompatibilityManager extends CommonCompatibilityManager 
         registerServerCommandsEvents = new CopyOnWriteArrayList<>();
         playerLoggedInEvents = new CopyOnWriteArrayList<>();
         playerLoggedOutEvents = new CopyOnWriteArrayList<>();
+        playerHideEvents = new CopyOnWriteArrayList<>();
+        playerShowEvents = new CopyOnWriteArrayList<>();
         voicechatConnectEvents = new CopyOnWriteArrayList<>();
         voicechatCompatibilityCheckSucceededEvents = new CopyOnWriteArrayList<>();
         voicechatDisconnectEvents = new CopyOnWriteArrayList<>();
@@ -83,6 +90,28 @@ public class PaperCommonCompatibilityManager extends CommonCompatibilityManager 
     public void onPlayerQuit(PlayerQuitEvent event) {
         ServerPlayer serverPlayer = BukkitUtils.getPlayer(event.getPlayer());
         playerLoggedOutEvents.forEach(consumer -> consumer.accept(serverPlayer));
+    }
+
+    @EventHandler
+    public void onPlayerHide(PlayerHideEntityEvent event) {
+        if (!(event.getEntity() instanceof org.bukkit.entity.Player)) {
+            return;
+        }
+        ServerPlayer hiddenPlayer = BukkitUtils.getPlayer((org.bukkit.entity.Player) event.getEntity());
+        ServerPlayer player = BukkitUtils.getPlayer(event.getPlayer());
+
+        playerHideEvents.forEach(consumer -> consumer.accept(hiddenPlayer, player));
+    }
+
+    @EventHandler
+    public void onPlayerShow(PlayerShowEntityEvent event) {
+        if (!(event.getEntity() instanceof org.bukkit.entity.Player)) {
+            return;
+        }
+        ServerPlayer shownPlayer = BukkitUtils.getPlayer((org.bukkit.entity.Player) event.getEntity());
+        ServerPlayer player = BukkitUtils.getPlayer(event.getPlayer());
+
+        playerShowEvents.forEach(consumer -> consumer.accept(shownPlayer, player));
     }
 
     @Override
@@ -143,6 +172,16 @@ public class PaperCommonCompatibilityManager extends CommonCompatibilityManager 
     @Override
     public void onPlayerLoggedOut(Consumer<ServerPlayer> onPlayerLoggedOut) {
         playerLoggedOutEvents.add(onPlayerLoggedOut);
+    }
+
+    @Override
+    public void onPlayerHide(BiConsumer<ServerPlayer, ServerPlayer> onPlayerHide) {
+        playerHideEvents.add(onPlayerHide);
+    }
+
+    @Override
+    public void onPlayerShow(BiConsumer<ServerPlayer, ServerPlayer> onPlayerShow) {
+        playerShowEvents.add(onPlayerShow);
     }
 
     @Override
@@ -209,4 +248,15 @@ public class PaperCommonCompatibilityManager extends CommonCompatibilityManager 
     public Object createRawApiLevel(ServerLevel level) {
         return level.getWorld();
     }
+
+    @Override
+    public boolean canSee(ServerPlayer player, ServerPlayer other) {
+        return player.getBukkitEntity().canSee(other.getBukkitEntity());
+    }
+
+    @Override
+    public void execute(MinecraftServer server, Runnable runnable) {
+        Bukkit.getServer().getGlobalRegionScheduler().execute(VoicechatPaperPlugin.INSTANCE, runnable);
+    }
+
 }

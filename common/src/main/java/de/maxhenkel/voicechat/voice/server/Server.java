@@ -21,7 +21,6 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.channels.AsynchronousCloseException;
-import java.security.SecureRandom;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
@@ -34,7 +33,7 @@ public class Server extends Thread {
 
     private final Map<UUID, ClientConnection> connections;
     private final Map<UUID, ClientConnection> unCheckedConnections;
-    private final Map<UUID, UUID> secrets;
+    private final Map<UUID, Secret> secrets;
     private final boolean dedicated;
     private int port;
     private final MinecraftServer server;
@@ -84,6 +83,14 @@ public class Server extends Thread {
         this.disconnectClient(player.getUUID());
         playerStateManager.onPlayerLoggedOut(player);
         groupManager.onPlayerLoggedOut(player);
+    }
+
+    public void onPlayerHide(ServerPlayer visibilityChangedPlayer, ServerPlayer observingPlayer) {
+        playerStateManager.onPlayerHide(visibilityChangedPlayer, observingPlayer);
+    }
+
+    public void onPlayerShow(ServerPlayer visibilityChangedPlayer, ServerPlayer observingPlayer) {
+        playerStateManager.onPlayerShow(visibilityChangedPlayer, observingPlayer);
     }
 
     public void onPlayerVoicechatConnect(ServerPlayer player) {
@@ -185,12 +192,11 @@ public class Server extends Thread {
         secrets.clear();
     }
 
-    public UUID getSecret(UUID playerUUID) {
+    public Secret getSecret(UUID playerUUID) {
         if (hasSecret(playerUUID)) {
             return secrets.get(playerUUID);
         } else {
-            SecureRandom r = new SecureRandom();
-            UUID secret = new UUID(r.nextLong(), r.nextLong());
+            Secret secret = Secret.generateNewRandomSecret();
             secrets.put(playerUUID, secret);
             return secret;
         }
@@ -201,7 +207,7 @@ public class Server extends Thread {
      * @return the new secret or null if the player already has a secret
      */
     @Nullable
-    public UUID generateNewSecret(UUID playerUUID) {
+    public Secret generateNewSecret(UUID playerUUID) {
         if (hasSecret(playerUUID)) {
             return null;
         }
@@ -281,7 +287,7 @@ public class Server extends Thread {
                     }
 
                     if (message.getPacket() instanceof AuthenticatePacket packet) {
-                        UUID secret = secrets.get(packet.getPlayerUUID());
+                        Secret secret = secrets.get(packet.getPlayerUUID());
                         if (secret != null && secret.equals(packet.getSecret())) {
                             ClientConnection connection = unCheckedConnections.get(packet.getPlayerUUID());
                             if (connection == null) {
@@ -399,7 +405,14 @@ public class Server extends Thread {
 
     private void processProximityPacket(PlayerState senderState, ServerPlayer sender, MicPacket packet) {
         @Nullable UUID groupId = senderState.getGroup();
-        float distance = Utils.getDefaultDistanceServer();
+        float distance;
+        if (packet.isWhispering()) {
+            distance = Voicechat.SERVER_CONFIG.whisperDistance.get().floatValue();
+        } else {
+            distance = Utils.getDefaultDistanceServer();
+        }
+
+        distance = PluginManager.instance().getDistance(sender, senderState, packet, distance);
 
         SoundPacket<?> soundPacket = null;
         String source = null;
@@ -426,10 +439,6 @@ public class Server extends Thread {
         }
 
         if (soundPacket == null) {
-            float crouchMultiplayer = sender.isCrouching() ? Voicechat.SERVER_CONFIG.crouchDistanceMultiplier.get().floatValue() : 1F;
-            float whisperMultiplayer = packet.isWhispering() ? Voicechat.SERVER_CONFIG.whisperDistanceMultiplier.get().floatValue() : 1F;
-            float multiplier = crouchMultiplayer * whisperMultiplayer;
-            distance = distance * multiplier;
             soundPacket = new PlayerSoundPacket(sender.getUUID(), sender.getUUID(), packet.getData(), packet.getSequenceNumber(), packet.isWhispering(), distance, null);
             source = SoundPacketEvent.SOURCE_PROXIMITY;
         }

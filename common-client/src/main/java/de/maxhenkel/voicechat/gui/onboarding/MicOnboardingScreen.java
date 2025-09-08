@@ -18,12 +18,12 @@ public class MicOnboardingScreen extends DeviceOnboardingScreen {
 
     @Override
     public AudioDeviceList createAudioDeviceList(int width, int height, int top) {
-        return new MicrophoneAudioDeviceList(width, height, top);
+        return new MicrophoneAudioDeviceList(this, width, height, top);
     }
 
     @Override
     public Screen getNextScreen() {
-        return new SpeakerOnboardingScreen(this);
+        return new ActivationOnboardingScreen(this);
     }
 
 }

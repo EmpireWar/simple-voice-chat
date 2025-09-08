@@ -5,6 +5,10 @@ buildscript {
     properties.each { key, value ->
         ext.set(key.toString(), value.toString())
     }
+
+    Properties apiProperties = new Properties()
+    apiProperties.load(new FileInputStream(file('../api/gradle.properties')))
+    ext.set('api_version', apiProperties.get('version'))
 }
 
 plugins {
@@ -22,6 +26,7 @@ processResources {
     filesMatching('quilt.mod.json') {
         expand 'java_version': java_version,
                 'mod_version': mod_version,
+                'api_version': api_version,
                 'minecraft_version': minecraft_version,
                 'minecraft_dependency': minecraft_dependency,
                 'quilt_loader_dependency': quilt_loader_dependency,
@@ -75,6 +80,9 @@ dependencies {
 
     implementation "de.maxhenkel.lame4j:lame4j:${lame4j_version}"
     shadow "de.maxhenkel.lame4j:lame4j:${lame4j_version}"
+
+    implementation "de.maxhenkel.speex4j:speex4j:${speex4j_version}"
+    shadow "de.maxhenkel.speex4j:speex4j:${speex4j_version}"
 }
 
 tasks.register('generateJava', Copy) {

@@ -7,7 +7,7 @@ import de.maxhenkel.voicechat.voice.client.*;
 import de.maxhenkel.voicechat.voice.client.speaker.Speaker;
 import de.maxhenkel.voicechat.voice.client.speaker.SpeakerException;
 import de.maxhenkel.voicechat.voice.client.speaker.SpeakerManager;
-import de.maxhenkel.voicechat.voice.common.Utils;
+import de.maxhenkel.voicechat.voice.common.AudioUtils;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Tooltip;
@@ -28,12 +28,15 @@ public class MicTestButton extends ToggleImageButton implements ImageButton.Tool
     private boolean micActive;
     @Nullable
     private VoiceThread voiceThread;
+    @Nullable
     private final MicListener micListener;
+    private final boolean raw;
     @Nullable
     private final ClientVoicechat client;
 
-    public MicTestButton(int xIn, int yIn, MicListener micListener) {
+    public MicTestButton(int xIn, int yIn, boolean raw, @Nullable MicListener micListener) {
         super(xIn, yIn, MICROPHONE, null, null, null);
+        this.raw = raw;
         this.micListener = micListener;
         this.client = ClientManager.getClient();
         active = client == null || client.getSoundManager() != null;
@@ -42,9 +45,17 @@ public class MicTestButton extends ToggleImageButton implements ImageButton.Tool
         tooltipSupplier = this;
     }
 
+    public MicTestButton(int xIn, int yIn, boolean raw) {
+        this(xIn, yIn, raw, null);
+    }
+
     @Override
     public void renderWidget(GuiGraphics guiGraphics, int x, int y, float partialTicks) {
         super.renderWidget(guiGraphics, x, y, partialTicks);
+        updateLastRender();
+    }
+
+    public void updateLastRender() {
         if (voiceThread != null) {
             voiceThread.updateLastRender();
         }
@@ -52,6 +63,10 @@ public class MicTestButton extends ToggleImageButton implements ImageButton.Tool
 
     public void setMicActive(boolean micActive) {
         this.micActive = micActive;
+    }
+
+    public boolean isMicActive() {
+        return micActive;
     }
 
     @Override
@@ -133,7 +148,6 @@ public class MicTestButton extends ToggleImageButton implements ImageButton.Tool
 
     private class VoiceThread extends Thread {
 
-        private final MicActivator micActivator;
         private final Speaker speaker;
         private boolean running;
         private long lastRender;
@@ -148,8 +162,6 @@ public class MicTestButton extends ToggleImageButton implements ImageButton.Tool
             setName("VoiceTestingThread");
             setUncaughtExceptionHandler(new VoicechatUncaughtExceptionHandler());
 
-            micActivator = new MicActivator();
-
             micThread = client != null ? client.getMicThread() : null;
             if (micThread == null) {
                 micThread = new MicThread(client, null, onMicError);
@@ -160,7 +172,7 @@ public class MicTestButton extends ToggleImageButton implements ImageButton.Tool
 
             SoundManager soundManager;
             if (client == null) {
-                soundManager = new SoundManager(VoicechatClient.CLIENT_CONFIG.speaker.get());
+                soundManager = new SoundManager();
                 ownSoundManager = soundManager;
             } else {
                 soundManager = client.getSoundManager();
@@ -182,27 +194,27 @@ public class MicTestButton extends ToggleImageButton implements ImageButton.Tool
                 if (System.currentTimeMillis() - lastRender > 500L) {
                     break;
                 }
-                short[] buff = micThread.pollMic();
+                if (micThread.isClosed()) {
+                    break;
+                }
+                short[] buff = raw ? micThread.pollMic() : micThread.pollProcessedAudio(true);
                 if (buff == null) {
                     continue;
                 }
 
-                micListener.onMicValue(Utils.dbToPerc(Utils.getHighestAudioLevel(buff)));
-
-                if (VoicechatClient.CLIENT_CONFIG.microphoneActivationType.get().equals(MicrophoneActivationType.VOICE)) {
-                    if (micActivator.push(buff, a -> {
-                    })) {
-                        play(buff);
-                    }
-                } else {
-                    micActivator.stopActivating();
-                    play(buff);
+                if (micListener != null) {
+                    micListener.onMicValue(AudioUtils.getHighestAudioLevel(buff));
                 }
 
+                if (raw || micThread.shouldTransmitAudio()) {
+                    play(buff);
+                }
             }
             speaker.close();
             setMicLocked(false);
-            micListener.onMicValue(0D);
+            if (micListener != null) {
+                micListener.onStop();
+            }
             if (usesOwnMicThread) {
                 micThread.close();
             }
@@ -240,6 +252,8 @@ public class MicTestButton extends ToggleImageButton implements ImageButton.Tool
     }
 
     public interface MicListener {
-        void onMicValue(double percentage);
+        void onMicValue(double dB);
+
+        void onStop();
     }
 }

@@ -106,7 +106,7 @@ public class ClientManager {
         }
         if (client != null) {
             Voicechat.LOGGER.info("Disconnecting from previous connection due to server change");
-            onDisconnect();
+            ClientCompatibilityManager.INSTANCE.emitDisconnectedEvent();
         }
         hasShownPermissionsMessage = false;
         Voicechat.LOGGER.info("Sending secret request to the server");
@@ -122,13 +122,13 @@ public class ClientManager {
             AVAuthorizationStatus status = PermissionCheck.getMicrophonePermissions();
             if (status.equals(AVAuthorizationStatus.DENIED)) {
                 if (!hasShownPermissionsMessage) {
-                    ChatUtils.sendPlayerError("message.voicechat.macos_no_mic_permission", null);
+                    ChatUtils.sendModErrorMessage("message.voicechat.macos_no_mic_permission");
                     hasShownPermissionsMessage = true;
                 }
                 Voicechat.LOGGER.warn("User hasn't granted microphone permissions: {}", status.name());
             } else if (!status.equals(AVAuthorizationStatus.AUTHORIZED)) {
                 if (!hasShownPermissionsMessage) {
-                    ChatUtils.sendPlayerError("message.voicechat.macos_unsupported_launcher", null);
+                    ChatUtils.sendModErrorMessage("message.voicechat.macos_unsupported_launcher");
                     hasShownPermissionsMessage = true;
                 }
                 Voicechat.LOGGER.warn("User has an unsupported launcher: {}", status.name());

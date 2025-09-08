@@ -5,12 +5,15 @@ import de.maxhenkel.voicechat.intercompatibility.CommonCompatibilityManager;
 import de.maxhenkel.voicechat.net.NetManager;
 import de.maxhenkel.voicechat.net.PlayerStatePacket;
 import de.maxhenkel.voicechat.net.PlayerStatesPacket;
+import de.maxhenkel.voicechat.net.RemovePlayerStatePacket;
 import de.maxhenkel.voicechat.plugins.PluginManager;
 import de.maxhenkel.voicechat.voice.common.PlayerState;
 import net.minecraft.server.level.ServerPlayer;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -34,19 +37,44 @@ public class PlayerStateManager {
 
             states.put(player.getUUID(), state);
 
-            broadcastState(state);
+            broadcastState(player, state);
             Voicechat.LOGGER.debug("Got state of {}: {}", player.getName().getString(), state);
         });
     }
 
-    public void broadcastState(PlayerState state) {
+    public void broadcastState(@Nullable ServerPlayer stateOwner, PlayerState state) {
         PlayerStatePacket packet = new PlayerStatePacket(state);
-        voicechatServer.getServer().getPlayerList().getPlayers().forEach(p -> NetManager.sendToClient(p, packet));
+        for (ServerPlayer receiver : voicechatServer.getServer().getPlayerList().getPlayers()) {
+            if (stateOwner != null && !CommonCompatibilityManager.INSTANCE.canSee(receiver, stateOwner)) {
+                continue;
+            }
+            NetManager.sendToClient(receiver, packet);
+        }
         PluginManager.instance().onPlayerStateChanged(state);
     }
 
+    public void broadcastRemoveState(ServerPlayer stateOwner) {
+        RemovePlayerStatePacket packet = new RemovePlayerStatePacket(stateOwner.getUUID());
+        for (ServerPlayer receiver : voicechatServer.getServer().getPlayerList().getPlayers()) {
+            NetManager.sendToClient(receiver, packet);
+        }
+        // Send the default disconnected state to the API when disconnecting
+        PluginManager.instance().onPlayerStateChanged(defaultDisconnectedState(stateOwner));
+    }
+
     public void onPlayerCompatibilityCheckSucceeded(ServerPlayer player) {
-        PlayerStatesPacket packet = new PlayerStatesPacket(states);
+        List<PlayerState> stateList = new ArrayList<>(states.size());
+        for (PlayerState state : states.values()) {
+            ServerPlayer otherPlayer = voicechatServer.getServer().getPlayerList().getPlayer(state.getUuid());
+            if (otherPlayer == null) {
+                continue;
+            }
+            if (!CommonCompatibilityManager.INSTANCE.canSee(player, otherPlayer)) {
+                continue;
+            }
+            stateList.add(state);
+        }
+        PlayerStatesPacket packet = new PlayerStatesPacket(stateList);
         NetManager.sendToClient(player, packet);
         Voicechat.LOGGER.debug("Sending initial states to {}", player.getName().getString());
     }
@@ -54,14 +82,30 @@ public class PlayerStateManager {
     public void onPlayerLoggedIn(ServerPlayer player) {
         PlayerState state = defaultDisconnectedState(player);
         states.put(player.getUUID(), state);
-        broadcastState(state);
+        broadcastState(player, state);
         Voicechat.LOGGER.debug("Setting default state of {}: {}", player.getName().getString(), state);
     }
 
     public void onPlayerLoggedOut(ServerPlayer player) {
         states.remove(player.getUUID());
-        broadcastState(new PlayerState(player.getUUID(), player.getGameProfile().getName(), false, true));
+        broadcastRemoveState(player);
         Voicechat.LOGGER.debug("Removing state of {}", player.getName().getString());
+    }
+
+    public void onPlayerHide(ServerPlayer visibilityChangedPlayer, ServerPlayer observingPlayer) {
+        RemovePlayerStatePacket packet = new RemovePlayerStatePacket(visibilityChangedPlayer.getUUID());
+        NetManager.sendToClient(observingPlayer, packet);
+        Voicechat.LOGGER.debug("Removing state of {} for {}", visibilityChangedPlayer.getName().getString(), observingPlayer.getName().getString());
+    }
+
+    public void onPlayerShow(ServerPlayer visibilityChangedPlayer, ServerPlayer observingPlayer) {
+        PlayerState state = states.get(visibilityChangedPlayer.getUUID());
+        if (state == null) {
+            state = defaultDisconnectedState(visibilityChangedPlayer);
+        }
+        PlayerStatePacket packet = new PlayerStatePacket(state);
+        NetManager.sendToClient(observingPlayer, packet);
+        Voicechat.LOGGER.debug("Sending state of {} to {}", visibilityChangedPlayer.getName().getString(), observingPlayer.getName().getString());
     }
 
     public void onPlayerVoicechatDisconnect(UUID uuid) {
@@ -72,7 +116,9 @@ public class PlayerStateManager {
 
         state.setDisconnected(true);
 
-        broadcastState(state);
+        @Nullable ServerPlayer player = voicechatServer.getServer().getPlayerList().getPlayer(uuid);
+
+        broadcastState(player, state);
         Voicechat.LOGGER.debug("Set state of {} to disconnected: {}", uuid, state);
     }
 
@@ -87,7 +133,7 @@ public class PlayerStateManager {
 
         states.put(player.getUUID(), state);
 
-        broadcastState(state);
+        broadcastState(player, state);
         Voicechat.LOGGER.debug("Set state of {} to connected: {}", player.getName().getString(), state);
     }
 
@@ -108,7 +154,7 @@ public class PlayerStateManager {
         }
         state.setGroup(group);
         states.put(player.getUUID(), state);
-        broadcastState(state);
+        broadcastState(player, state);
         Voicechat.LOGGER.debug("Setting group of {}: {}", player.getName().getString(), state);
     }
 

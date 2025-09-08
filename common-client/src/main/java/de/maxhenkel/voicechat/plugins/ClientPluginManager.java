@@ -6,7 +6,7 @@ import de.maxhenkel.voicechat.api.events.*;
 import de.maxhenkel.voicechat.plugins.impl.ClientVoicechatSocketImpl;
 import de.maxhenkel.voicechat.plugins.impl.PositionImpl;
 import de.maxhenkel.voicechat.plugins.impl.events.*;
-import de.maxhenkel.voicechat.voice.common.Utils;
+import de.maxhenkel.voicechat.voice.common.AudioUtils;
 import net.minecraft.world.phys.Vec3;
 
 import javax.annotation.Nullable;
@@ -19,6 +19,17 @@ public class ClientPluginManager {
 
     public ClientPluginManager(PluginManager pluginManager) {
         this.pluginManager = pluginManager;
+    }
+
+    /**
+     * We are caching the event to avoid creating a new one every frame
+     */
+    private final NameTagIconRenderEventImpl cachedRenderEvent = new NameTagIconRenderEventImpl();
+
+    public boolean shouldRenderPlayerIcons(UUID entityId) {
+        cachedRenderEvent.setEntityId(entityId);
+        cachedRenderEvent.setCancelled(false);
+        return !pluginManager.dispatchEvent(NameTagIconRenderEvent.class, cachedRenderEvent);
     }
 
     public ClientVoicechatSocket getClientSocketImplementation() {
@@ -45,7 +56,7 @@ public class ClientPluginManager {
         if (rawAudio != null) {
             audioToMerge.add(0, rawAudio);
         }
-        return Utils.combineAudio(audioToMerge);
+        return AudioUtils.combineAudio(audioToMerge);
     }
 
     @Nullable

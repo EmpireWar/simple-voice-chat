@@ -6,6 +6,7 @@ import de.maxhenkel.voicechat.intercompatibility.CrossSideManager;
 import de.maxhenkel.voicechat.net.NetManager;
 import de.maxhenkel.voicechat.net.SecretPacket;
 import de.maxhenkel.voicechat.plugins.PluginManager;
+import de.maxhenkel.voicechat.voice.common.Secret;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -29,6 +30,8 @@ public class ServerVoiceEvents {
         CommonCompatibilityManager.INSTANCE.onServerStarting(this::serverStarting);
         CommonCompatibilityManager.INSTANCE.onPlayerLoggedIn(this::playerLoggedIn);
         CommonCompatibilityManager.INSTANCE.onPlayerLoggedOut(this::playerLoggedOut);
+        CommonCompatibilityManager.INSTANCE.onPlayerHide(this::onPlayerHide);
+        CommonCompatibilityManager.INSTANCE.onPlayerShow(this::onPlayerShow);
         CommonCompatibilityManager.INSTANCE.onServerStopping(this::serverStopping);
 
         CommonCompatibilityManager.INSTANCE.onServerVoiceChatConnected(this::serverVoiceChatConnected);
@@ -98,7 +101,7 @@ public class ServerVoiceEvents {
         }
         CommonCompatibilityManager.INSTANCE.emitPlayerCompatibilityCheckSucceeded(player);
 
-        UUID secret = server.generateNewSecret(player.getUUID());
+        Secret secret = server.generateNewSecret(player.getUUID());
         if (secret == null) {
             Voicechat.LOGGER.warn("Player already requested secret - ignoring");
             return;
@@ -129,13 +132,12 @@ public class ServerVoiceEvents {
                     return;
                 }
                 if (!isCompatible(serverPlayer)) {
-                    serverPlayer.server.execute(() -> {
+                    CommonCompatibilityManager.INSTANCE.execute(serverPlayer.server, () -> {
                         serverPlayer.connection.disconnect(
                                 Component.literal(Voicechat.TRANSLATIONS.forceVoicechatKickMessage.get().formatted(
                                         CommonCompatibilityManager.INSTANCE.getModName(),
                                         CommonCompatibilityManager.INSTANCE.getModVersion()
-                                ))
-                        );
+                                )));
                     });
                 }
             }
@@ -150,6 +152,22 @@ public class ServerVoiceEvents {
 
         server.onPlayerLoggedOut(player);
         Voicechat.LOGGER.info("Disconnecting client {}", player.getName().getString());
+    }
+
+    public void onPlayerHide(ServerPlayer visibilityChangedPlayer, ServerPlayer observingPlayer) {
+        if (server == null) {
+            return;
+        }
+
+        server.onPlayerHide(visibilityChangedPlayer, observingPlayer);
+    }
+
+    public void onPlayerShow(ServerPlayer visibilityChangedPlayer, ServerPlayer observingPlayer) {
+        if (server == null) {
+            return;
+        }
+
+        server.onPlayerShow(visibilityChangedPlayer, observingPlayer);
     }
 
     public void serverVoiceChatConnected(ServerPlayer serverPlayer) {

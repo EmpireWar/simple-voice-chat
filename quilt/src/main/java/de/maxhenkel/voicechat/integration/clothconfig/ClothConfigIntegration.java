@@ -42,16 +42,17 @@ public class ClothConfigIntegration {
 
         ConfigCategory audio = builder.getOrCreateCategory(Component.translatable("cloth_config.voicechat.category.audio"));
         audio.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.audioPacketThreshold));
-        audio.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.deactivationDelay));
+        audio.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.voiceDeactivationDelay));
+        audio.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.pttDeactivationDelay));
         audio.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.outputBufferSize));
 
         ConfigCategory hudIcons = builder.getOrCreateCategory(Component.translatable("cloth_config.voicechat.category.hud_icons"));
+        hudIcons.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.showNametagIcons));
+        hudIcons.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.showHudIcons));
         hudIcons.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.hudIconScale));
         hudIcons.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.hudIconPosX));
         hudIcons.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.hudIconPosY));
-
-        ConfigCategory groupIcons = builder.getOrCreateCategory(Component.translatable("cloth_config.voicechat.category.group_chat_icons"));
-        groupIcons.addEntry(entryBuilder
+        hudIcons.addEntry(entryBuilder
                 .startEnumSelector(Component.translatable("cloth_config.voicechat.config.group_player_icon_orientation"), GroupPlayerIconOrientation.class, VoicechatClient.CLIENT_CONFIG.groupPlayerIconOrientation.get())
                 .setEnumNameProvider(e -> Component.translatable(String.format("cloth_config.voicechat.config.group_player_icon_orientation.%s", e.name().toLowerCase())))
                 .setTooltip(Component.translatable("cloth_config.voicechat.config.group_player_icon_orientation.description"))
@@ -59,10 +60,10 @@ public class ClothConfigIntegration {
                 .setSaveConsumer(e -> VoicechatClient.CLIENT_CONFIG.groupPlayerIconOrientation.set(e).save())
                 .build()
         );
-        groupIcons.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.groupHudIconScale));
-        groupIcons.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.groupPlayerIconPosX));
-        groupIcons.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.groupPlayerIconPosY));
-        groupIcons.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.showOwnGroupIcon));
+        hudIcons.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.groupHudIconScale));
+        hudIcons.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.groupPlayerIconPosX));
+        hudIcons.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.groupPlayerIconPosY));
+        hudIcons.addEntry(fromConfigEntry(entryBuilder, VoicechatClient.CLIENT_CONFIG.showOwnGroupIcon));
 
         builder.getOrCreateCategory(OTHER_SETTINGS);
         return builder.build();

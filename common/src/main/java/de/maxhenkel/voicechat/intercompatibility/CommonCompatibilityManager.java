@@ -17,6 +17,7 @@ import net.minecraft.world.entity.player.Player;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public abstract class CommonCompatibilityManager {
@@ -46,6 +47,16 @@ public abstract class CommonCompatibilityManager {
     public abstract void onPlayerLoggedIn(Consumer<ServerPlayer> onPlayerLoggedIn);
 
     public abstract void onPlayerLoggedOut(Consumer<ServerPlayer> onPlayerLoggedOut);
+
+    /**
+     * @param onPlayerHide (visibilityChangedPlayer, observingPlayer)
+     */
+    public abstract void onPlayerHide(BiConsumer<ServerPlayer, ServerPlayer> onPlayerHide);
+
+    /**
+     * @param onPlayerShow (visibilityChangedPlayer, observingPlayer)
+     */
+    public abstract void onPlayerShow(BiConsumer<ServerPlayer, ServerPlayer> onPlayerShow);
 
     public abstract void onPlayerCompatibilityCheckSucceeded(Consumer<ServerPlayer> onPlayerCompatibilityCheckSucceeded);
 
@@ -77,6 +88,12 @@ public abstract class CommonCompatibilityManager {
 
     public Object createRawApiLevel(ServerLevel level) {
         return level;
+    }
+
+    public abstract boolean canSee(ServerPlayer player, ServerPlayer other);
+
+    public void execute(MinecraftServer server, Runnable runnable) {
+        server.execute(runnable);
     }
 
 }

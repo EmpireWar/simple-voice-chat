@@ -5,15 +5,14 @@ import de.maxhenkel.configbuilder.entry.ConfigEntry;
 import de.maxhenkel.opus4j.OpusEncoder;
 import de.maxhenkel.voicechat.api.opus.OpusEncoderMode;
 import de.maxhenkel.voicechat.intercompatibility.CommonCompatibilityManager;
-import de.maxhenkel.voicechat.voice.common.Utils;
+import de.maxhenkel.voicechat.voice.common.AudioUtils;
 
 public class ServerConfig {
 
     public ConfigEntry<Integer> voiceChatPort;
     public ConfigEntry<String> voiceChatBindAddress;
     public ConfigEntry<Double> voiceChatDistance;
-    public ConfigEntry<Double> crouchDistanceMultiplier;
-    public ConfigEntry<Double> whisperDistanceMultiplier;
+    public ConfigEntry<Double> whisperDistance;
     public ConfigEntry<Codec> voiceChatCodec;
     public ConfigEntry<Integer> voiceChatMtuSize;
     public ConfigEntry<Integer> keepAlive;
@@ -51,13 +50,9 @@ public class ServerConfig {
                 .doubleEntry("max_voice_distance", 48D, 1D, 1_000_000D,
                         "The distance to which the voice can be heard"
                 );
-        crouchDistanceMultiplier = builder
-                .doubleEntry("crouch_distance_multiplier", 1D, 0.01D, 1D,
-                        "The multiplier of the voice distance when crouching"
-                );
-        whisperDistanceMultiplier = builder
-                .doubleEntry("whisper_distance_multiplier", 0.5D, 0.01D, 1D,
-                        "The multiplier of the voice distance when whispering"
+        whisperDistance = builder
+                .doubleEntry("whisper_distance", 24D, 1D, 1_000_000D,
+                        "The distance to which the voice can be heard when whispering"
                 );
         voiceChatCodec = builder
                 .enumEntry("codec", Codec.VOIP,
@@ -65,7 +60,7 @@ public class ServerConfig {
                         "Valid values are 'VOIP', 'AUDIO', and 'RESTRICTED_LOWDELAY'"
                 );
         voiceChatMtuSize = builder
-                .integerEntry("mtu_size", Utils.DEFAULT_MAX_PAYLOAD_SIZE, 256, 10000,
+                .integerEntry("mtu_size", AudioUtils.DEFAULT_MAX_PAYLOAD_SIZE, 256, 10000,
                         "The maximum size that audio packets are allowed to have (in bytes)",
                         "Set this to a lower value if audio packets don't arrive"
                 );
@@ -81,7 +76,7 @@ public class ServerConfig {
         voiceHost = builder
                 .stringEntry("voice_host", "",
                         "The hostname that clients should use to connect to the voice chat",
-                        "This may also include a port, e.g. 'example.com:24454'",
+                        "This may also include a port, e.g. 'example.com:24454' or just a port, e.g. '24454'",
                         "Do NOT change this value if you don't know what you're doing"
                 );
         allowRecording = builder

@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 public class QuiltCommonCompatibilityManager extends CommonCompatibilityManager {
@@ -97,6 +98,16 @@ public class QuiltCommonCompatibilityManager extends CommonCompatibilityManager 
     }
 
     @Override
+    public void onPlayerHide(BiConsumer<ServerPlayer, ServerPlayer> onPlayerHide) {
+        // Do nothing for now
+    }
+
+    @Override
+    public void onPlayerShow(BiConsumer<ServerPlayer, ServerPlayer> onPlayerShow) {
+        // Do nothing for now
+    }
+
+    @Override
     public void onPlayerCompatibilityCheckSucceeded(Consumer<ServerPlayer> onPlayerCompatibilityCheckSucceeded) {
         ServerVoiceChatEvents.VOICECHAT_COMPATIBILITY_CHECK_SUCCEEDED.register(onPlayerCompatibilityCheckSucceeded);
     }
@@ -141,4 +152,8 @@ public class QuiltCommonCompatibilityManager extends CommonCompatibilityManager 
         return new QuiltPermissionManager();
     }
 
+    @Override
+    public boolean canSee(ServerPlayer player, ServerPlayer other) {
+        return true;
+    }
 }

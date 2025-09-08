@@ -5,6 +5,8 @@ import de.maxhenkel.voicechat.Voicechat;
 import de.maxhenkel.voicechat.api.VoicechatPlugin;
 import de.maxhenkel.voicechat.events.PlayerEvents;
 import de.maxhenkel.voicechat.events.ServerVoiceChatEvents;
+import de.maxhenkel.voicechat.events.VanishEvents;
+import de.maxhenkel.voicechat.integration.vanish.VanishIntegration;
 import de.maxhenkel.voicechat.net.FabricNetManager;
 import de.maxhenkel.voicechat.net.NetManager;
 import de.maxhenkel.voicechat.permission.FabricPermissionManager;
@@ -22,6 +24,7 @@ import net.minecraft.server.level.ServerPlayer;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -96,6 +99,16 @@ public class FabricCommonCompatibilityManager extends CommonCompatibilityManager
     }
 
     @Override
+    public void onPlayerHide(BiConsumer<ServerPlayer, ServerPlayer> onPlayerHide) {
+        VanishEvents.ON_VANISH.register(onPlayerHide);
+    }
+
+    @Override
+    public void onPlayerShow(BiConsumer<ServerPlayer, ServerPlayer> onPlayerShow) {
+        VanishEvents.ON_UNVANISH.register(onPlayerShow);
+    }
+
+    @Override
     public void onPlayerCompatibilityCheckSucceeded(Consumer<ServerPlayer> onPlayerCompatibilityCheckSucceeded) {
         ServerVoiceChatEvents.VOICECHAT_COMPATIBILITY_CHECK_SUCCEEDED.register(onPlayerCompatibilityCheckSucceeded);
     }
@@ -138,6 +151,11 @@ public class FabricCommonCompatibilityManager extends CommonCompatibilityManager
     @Override
     public PermissionManager createPermissionManager() {
         return new FabricPermissionManager();
+    }
+
+    @Override
+    public boolean canSee(ServerPlayer player, ServerPlayer other) {
+        return VanishIntegration.canSee(player, other);
     }
 
 }

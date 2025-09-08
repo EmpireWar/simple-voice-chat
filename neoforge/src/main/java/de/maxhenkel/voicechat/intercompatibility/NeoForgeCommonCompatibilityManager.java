@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class NeoForgeCommonCompatibilityManager extends CommonCompatibilityManager {
@@ -81,6 +82,16 @@ public class NeoForgeCommonCompatibilityManager extends CommonCompatibilityManag
         if (event.getEntity() instanceof ServerPlayer player) {
             playerLoggedOutEvents.forEach(consumer -> consumer.accept(player));
         }
+    }
+
+    @Override
+    public void onPlayerHide(BiConsumer<ServerPlayer, ServerPlayer> onPlayerHide) {
+        // Do nothing for now
+    }
+
+    @Override
+    public void onPlayerShow(BiConsumer<ServerPlayer, ServerPlayer> onPlayerShow) {
+        // Do nothing for now
     }
 
     @Override
@@ -205,5 +216,10 @@ public class NeoForgeCommonCompatibilityManager extends CommonCompatibilityManag
     @Override
     public PermissionManager createPermissionManager() {
         return new NeoForgePermissionManager();
+    }
+
+    @Override
+    public boolean canSee(ServerPlayer player, ServerPlayer other) {
+        return true;
     }
 }

@@ -1,2 +1,1 @@
-- Updated German translation
-- Fixed datagen failing
+- Fixed multiple icons being rendered above players

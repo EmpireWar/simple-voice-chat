@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class ForgeCommonCompatibilityManager extends CommonCompatibilityManager {
@@ -147,6 +148,16 @@ public class ForgeCommonCompatibilityManager extends CommonCompatibilityManager 
     }
 
     @Override
+    public void onPlayerHide(BiConsumer<ServerPlayer, ServerPlayer> onPlayerHide) {
+        // Do nothing for now
+    }
+
+    @Override
+    public void onPlayerShow(BiConsumer<ServerPlayer, ServerPlayer> onPlayerShow) {
+        // Do nothing for now
+    }
+
+    @Override
     public void onPlayerCompatibilityCheckSucceeded(Consumer<ServerPlayer> onPlayerCompatibilityCheckSucceeded) {
         voicechatCompatibilityCheckSucceededEvents.add(onPlayerCompatibilityCheckSucceeded);
     }
@@ -205,5 +216,10 @@ public class ForgeCommonCompatibilityManager extends CommonCompatibilityManager 
     @Override
     public PermissionManager createPermissionManager() {
         return new ForgePermissionManager();
+    }
+
+    @Override
+    public boolean canSee(ServerPlayer player, ServerPlayer other) {
+        return true;
     }
 }
