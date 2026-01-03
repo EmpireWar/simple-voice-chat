@@ -1,0 +1,93 @@
+import org.spongepowered.gradle.plugin.config.PluginLoaders
+import org.spongepowered.gradle.vanilla.repository.MinecraftPlatform
+import org.spongepowered.plugin.metadata.model.PluginDependency
+
+plugins {
+    id 'java'
+    id "org.spongepowered.gradle.plugin" version "2.3.0"
+    id "org.spongepowered.gradle.vanilla"
+    id 'com.gradleup.shadow'
+}
+
+apply plugin: 'de.maxhenkel.cursegradle'
+apply plugin: 'com.modrinth.minotaur'
+apply plugin: 'mod-update'
+
+apply from: "https://raw.githubusercontent.com/henkelmax/mod-gradle-scripts/${mod_gradle_script_version}/mod.gradle"
+
+minecraft {
+    version("1.21.11") // or: latestRelease() or latestSnapshot()
+    platform(MinecraftPlatform.SERVER)
+}
+
+repositories {
+    maven { url = 'https://maven.shedaniel.me/' }
+    maven { url = 'https://maven.terraformersmc.com/releases' }
+    maven { url = 'https://repo.viaversion.com/' }
+    maven { url = 'https://maven.fabricmc.net/' }
+    maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+    maven { url = 'https://maven.neoforged.net/releases' }
+    maven { url = 'https://maven.maxhenkel.de/repository/public' }
+    maven { url = 'https://maven.minecraftforge.net' }
+    maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+}
+
+dependencies {
+    implementation "org.concentus:Concentus:${concentus_version}"
+    shadow "org.concentus:Concentus:${concentus_version}"
+
+    implementation "de.maxhenkel.opus4j:opus4j:${opus4j_version}"
+    shadow "de.maxhenkel.opus4j:opus4j:${opus4j_version}"
+
+    implementation "de.maxhenkel.lame4j:lame4j:${lame4j_version}"
+    shadow "de.maxhenkel.lame4j:lame4j:${lame4j_version}"
+
+    compileOnly "com.viaversion:viaversion-sponge:${viaversion_version}"
+    compileOnly "com.viaversion:viaversion-common:${viaversion_version}"
+}
+
+sponge {
+    apiVersion '18.0.0-SNAPSHOT'
+    loader {
+        name PluginLoaders.JAVA_PLAIN
+        version '1.0.0'
+    }
+    plugin('voicechat') {
+        displayName 'Simple Voice Chat'
+        entrypoint 'de.maxhenkel.voicechat.VoicechatSponge'
+        description 'A working voice chat in Minecraft!'
+        license 'ARR'
+        version project.version.toString()
+        dependency('spongeapi') {
+            loadOrder PluginDependency.LoadOrder.AFTER
+            optional false
+        }
+        contributors {
+            contributor("SamB440") {}
+        }
+    }
+}
+
+processResources {
+    filesMatching('sponge-plugins.json') {
+        expand 'mod_version': mod_version,
+                'minecraft_version': minecraft_version
+    }
+}
+
+tasks.register('generateJava', Copy) {
+    from project(':common').file('src/template/java')
+    into "${layout.buildDirectory.asFile.get()}/generated/java"
+    expand 'compatibility_version': voicechat_compatibility_version,
+            'mod_compatible_version': mod_compatible_version,
+            'minecraft_version': minecraft_version
+}
+sourceSets.main.java {
+    srcDir "${layout.buildDirectory.asFile.get()}/generated/java"
+}
+compileJava.dependsOn generateJava
+
+shadowJar {
+    relocate 'org.concentus', 'de.maxhenkel.voicechat.concentus'
+    exclude 'natives/*-x86/*'
+}

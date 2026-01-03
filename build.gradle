@@ -7,6 +7,7 @@ plugins {
     id 'io.papermc.hangar-publish-plugin' version "${hangar_publish_version}" apply false
     id 'io.papermc.paperweight.userdev' version "${paperweight_version}" apply false
     id 'xyz.jpenilla.run-paper' version "${run_task_version}" apply false
+    id "org.spongepowered.gradle.vanilla" version "0.2.2" apply false
 }
 
 apply from: "https://raw.githubusercontent.com/henkelmax/mod-gradle-scripts/${mod_gradle_script_version}/taskutils.gradle"
