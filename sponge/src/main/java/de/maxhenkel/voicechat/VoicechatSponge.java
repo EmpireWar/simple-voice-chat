@@ -66,6 +66,11 @@ public class VoicechatSponge extends Voicechat {
             protected Translations createTranslations(ConfigBuilder builder) {
                 return new SpongeTranslations(builder);
             }
+
+            @Override
+            public Loader getLoader() {
+                return Loader.SPONGE;
+            }
         };
         voicechat.initialize();
 
@@ -97,5 +102,10 @@ public class VoicechatSponge extends Voicechat {
 
     public PluginContainer getContainer() {
         return container;
+    }
+
+    @Override
+    public Loader getLoader() {
+        return Loader.SPONGE;
     }
 }

@@ -79,6 +79,6 @@ public abstract class Voicechat {
     }
 
     public enum Loader {
-        FABRIC, NEOFORGE, FORGE, QUILT, PAPER
+        FABRIC, NEOFORGE, FORGE, QUILT, PAPER, SPONGE
     }
 }
