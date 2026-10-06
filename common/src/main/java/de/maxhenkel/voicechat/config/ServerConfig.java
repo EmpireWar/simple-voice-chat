@@ -3,6 +3,7 @@ package de.maxhenkel.voicechat.config;
 import de.maxhenkel.configbuilder.ConfigBuilder;
 import de.maxhenkel.configbuilder.entry.ConfigEntry;
 import de.maxhenkel.opus4j.OpusEncoder;
+import de.maxhenkel.voicechat.Voicechat;
 import de.maxhenkel.voicechat.api.opus.OpusEncoderMode;
 import de.maxhenkel.voicechat.intercompatibility.CommonCompatibilityManager;
 import de.maxhenkel.voicechat.voice.common.AudioUtils;
@@ -15,6 +16,7 @@ public class ServerConfig {
     public ConfigEntry<Double> whisperDistance;
     public ConfigEntry<Codec> voiceChatCodec;
     public ConfigEntry<Integer> voiceChatMtuSize;
+    public ConfigEntry<Integer> tcpRateLimit;
     public ConfigEntry<Integer> keepAlive;
     public ConfigEntry<Boolean> groupsEnabled;
     public ConfigEntry<String> voiceHost;
@@ -26,8 +28,9 @@ public class ServerConfig {
     public ConfigEntry<Double> broadcastRange;
     public ConfigEntry<Boolean> allowPings;
     public ConfigEntry<Boolean> useNatives;
+    public ConfigEntry<Boolean> threadedServerSupport;
 
-    public ServerConfig(ConfigBuilder builder) {
+    public ServerConfig(ConfigBuilder builder, Voicechat.Loader loader) {
 
         builder.header(String.format("%s server config v%s", CommonCompatibilityManager.INSTANCE.getModName(), CommonCompatibilityManager.INSTANCE.getModVersion()));
 
@@ -38,13 +41,15 @@ public class ServerConfig {
                         "specified here, independently of other networking used for the game server.",
                         "Set this to '-1' to use the same port number that is used by the Minecraft server.",
                         "However, it is strongly recommended NOT to use the same port number because UDP on",
-                        "it is also used by default for the server query. Doing so may crash the server!"
+                        "it is also used by default for the server query. Doing so may crash the server!",
+                        "This option only works on dedicated servers."
                 );
         voiceChatBindAddress = builder
                 .stringEntry("bind_address", "",
                         "The server IP address to bind the voice chat to",
                         "Leave blank to use the 'server-ip' property from the 'server.properties' config file",
-                        "To bind to the wildcard IP address, use '*'"
+                        "To bind to the wildcard IP address, use '*'",
+                        "This option only works on dedicated servers"
                 );
         voiceChatDistance = builder
                 .doubleEntry("max_voice_distance", 48D, 1D, 1_000_000D,
@@ -60,9 +65,16 @@ public class ServerConfig {
                         "Valid values are 'VOIP', 'AUDIO', and 'RESTRICTED_LOWDELAY'"
                 );
         voiceChatMtuSize = builder
-                .integerEntry("mtu_size", AudioUtils.DEFAULT_MAX_PAYLOAD_SIZE, 256, 10000,
+                .integerEntry("mtu_size", AudioUtils.MAX_OPUS_PAYLOAD_SIZE, 512, 2048,
                         "The maximum size that audio packets are allowed to have (in bytes)",
-                        "Set this to a lower value if audio packets don't arrive"
+                        "Setting this to lower values might cause issues"
+                );
+        tcpRateLimit = builder
+                .integerEntry("tcp_rate_limit", 16, -1, 1024,
+                        "The maximum number of packets a player can send per second",
+                        "Set this to -1 to disable the rate limit - This must be greater than 0 in all other cases",
+                        "This only applies to voice chat packets that are sent through Minecrafts networking",
+                        "This affects actions like opening/joining/leaving voice chat groups or general state changes like disabling/enabling the voice chat"
                 );
         keepAlive = builder
                 .integerEntry("keep_alive", 1000, 1000, Integer.MAX_VALUE,
@@ -77,7 +89,8 @@ public class ServerConfig {
                 .stringEntry("voice_host", "",
                         "The hostname that clients should use to connect to the voice chat",
                         "This may also include a port, e.g. 'example.com:24454' or just a port, e.g. '24454'",
-                        "Do NOT change this value if you don't know what you're doing"
+                        "Do NOT change this value if you don't know what you're doing",
+                        "This option only works on dedicated servers"
                 );
         allowRecording = builder
                 .booleanEntry("allow_recording", true,
@@ -113,6 +126,11 @@ public class ServerConfig {
                 .booleanEntry("use_natives", true,
                         "If the mod should load native libraries on dedicated servers",
                         "This is mostly relevant for voice chat addons"
+                );
+        threadedServerSupport = builder
+                .booleanEntry("threaded_server_support", Voicechat.Loader.PAPER.equals(loader),
+                        "If the voice chat should support servers that run multiple threads, like Folia",
+                        "Disabling this may slightly improve performance, but can cause issues on servers that don't run everything on a single thread"
                 );
     }
 

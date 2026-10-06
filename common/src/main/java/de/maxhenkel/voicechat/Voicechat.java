@@ -8,6 +8,7 @@ import de.maxhenkel.voicechat.intercompatibility.CommonCompatibilityManager;
 import de.maxhenkel.voicechat.logging.Log4JVoicechatLogger;
 import de.maxhenkel.voicechat.logging.VoicechatLogger;
 import de.maxhenkel.voicechat.plugins.PluginManager;
+import de.maxhenkel.voicechat.voice.server.ServerPlayerManager;
 import de.maxhenkel.voicechat.voice.server.ServerVoiceEvents;
 
 import java.nio.file.Path;
@@ -37,6 +38,7 @@ public abstract class Voicechat {
 
         CommonCompatibilityManager.INSTANCE.getNetManager().init();
         SERVER = new ServerVoiceEvents();
+        ServerPlayerManager.init();
         initPlugins();
         registerCommands();
     }
@@ -50,7 +52,7 @@ public abstract class Voicechat {
     }
 
     public void initializeConfigs() {
-        SERVER_CONFIG = ConfigBuilder.builder(ServerConfig::new).path(getVoicechatConfigFolderInternal().resolve("voicechat-server.properties")).build();
+        SERVER_CONFIG = ConfigBuilder.builder(configBuilder -> new ServerConfig(configBuilder, getLoader())).path(getVoicechatConfigFolderInternal().resolve("voicechat-server.properties")).build();
         TRANSLATIONS = ConfigBuilder.builder(this::createTranslations).path(getVoicechatConfigFolderInternal().resolve("translations.properties")).build();
     }
 
@@ -66,6 +68,8 @@ public abstract class Voicechat {
         return getVoicechatConfigFolder();
     }
 
+    public abstract Loader getLoader();
+
     public static Path getVoicechatConfigFolder() {
         return getConfigFolder().resolve(MODID);
     }
@@ -74,4 +78,7 @@ public abstract class Voicechat {
         return Path.of(".").resolve("config");
     }
 
+    public enum Loader {
+        FABRIC, NEOFORGE, FORGE, QUILT, PAPER
+    }
 }

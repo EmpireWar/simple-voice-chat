@@ -6,6 +6,8 @@ import net.minecraft.world.phys.Vec2;
 
 public class Utils {
 
+    public static final int MAX_VOICE_CHAT_PACKET_SIZE = 2048;
+
     public static void sleep(int ms) {
         try {
             Thread.sleep(ms);

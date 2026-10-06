@@ -1,4 +1,3 @@
-- Fixed incorrect entry in Simplified Chinese translation
-- Fixed OpenAL context destroy event potentially being fired multiple times
-- Fixed crash when opening LAN world
-- Fixed keybinds not applied properly from the voice chat settings screen
+- Ignore `voice_host` in singleplayer and LAN worlds
+- Improved sound manager error messages
+- Added Thai translation

@@ -9,6 +9,7 @@ import de.maxhenkel.voicechat.api.audiosender.AudioSender;
 import de.maxhenkel.voicechat.api.config.ConfigAccessor;
 import de.maxhenkel.voicechat.api.events.SoundPacketEvent;
 import de.maxhenkel.voicechat.api.opus.OpusEncoder;
+import de.maxhenkel.voicechat.api.packets.ConvertablePacket;
 import de.maxhenkel.voicechat.api.packets.EntitySoundPacket;
 import de.maxhenkel.voicechat.api.packets.LocationalSoundPacket;
 import de.maxhenkel.voicechat.api.packets.StaticSoundPacket;
@@ -18,14 +19,12 @@ import de.maxhenkel.voicechat.plugins.impl.audiochannel.*;
 import de.maxhenkel.voicechat.plugins.impl.audiolistener.PlayerAudioListenerImpl;
 import de.maxhenkel.voicechat.plugins.impl.audiosender.AudioSenderImpl;
 import de.maxhenkel.voicechat.plugins.impl.config.ConfigAccessorImpl;
-import de.maxhenkel.voicechat.plugins.impl.packets.EntitySoundPacketImpl;
-import de.maxhenkel.voicechat.plugins.impl.packets.LocationalSoundPacketImpl;
-import de.maxhenkel.voicechat.plugins.impl.packets.StaticSoundPacketImpl;
+import de.maxhenkel.voicechat.plugins.impl.packets.*;
 import de.maxhenkel.voicechat.voice.common.PlayerState;
 import de.maxhenkel.voicechat.voice.common.SoundPacket;
 import de.maxhenkel.voicechat.voice.server.ClientConnection;
 import de.maxhenkel.voicechat.voice.server.Server;
-import de.maxhenkel.voicechat.voice.server.ServerWorldUtils;
+import de.maxhenkel.voicechat.voice.server.ServerPlayerManager;
 
 import javax.annotation.Nullable;
 import java.util.Collection;
@@ -67,6 +66,11 @@ public class VoicechatServerApiImpl extends VoicechatApiImpl implements Voicecha
         if (p instanceof StaticSoundPacketImpl packet) {
             sendPacket(connection, packet.getPacket());
         }
+    }
+
+    @Override
+    public ConvertablePacket createPacket() {
+        return new ConvertablePacketImpl();
     }
 
     @Nullable
@@ -258,7 +262,7 @@ public class VoicechatServerApiImpl extends VoicechatApiImpl implements Voicecha
         if (!(level instanceof ServerLevelImpl serverLevel)) {
             throw new IllegalArgumentException("ServerLevel is not an instance of ServerLevelImpl");
         }
-        return ServerWorldUtils.getPlayersInRange(serverLevel.getRawServerLevel(), p.getPosition(), range, filter == null ? null : player -> filter.test(new ServerPlayerImpl(player))).stream().map(ServerPlayerImpl::new).collect(Collectors.toList());
+        return ServerPlayerManager.getPlayersInRange(serverLevel.getRawServerLevel(), p.getPosition(), range, filter == null ? null : player -> filter.test(new ServerPlayerImpl(player))).stream().map(ServerPlayerImpl::new).collect(Collectors.toList());
     }
 
     @Override

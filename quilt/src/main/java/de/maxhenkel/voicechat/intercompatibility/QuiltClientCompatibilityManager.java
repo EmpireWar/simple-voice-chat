@@ -1,34 +1,39 @@
 package de.maxhenkel.voicechat.intercompatibility;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import de.maxhenkel.voicechat.Voicechat;
 import de.maxhenkel.voicechat.events.*;
 import de.maxhenkel.voicechat.mixin.ConnectionAccessor;
 import de.maxhenkel.voicechat.resourcepacks.IPackRepository;
 import de.maxhenkel.voicechat.voice.client.ClientVoicechatConnection;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.event.Event;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.Connection;
-import net.minecraft.server.packs.repository.PackRepository;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.repository.RepositorySource;
-import org.quiltmc.qsl.lifecycle.api.client.event.ClientTickEvents;
-import org.quiltmc.qsl.networking.api.client.ClientPlayConnectionEvents;
 
 import java.net.SocketAddress;
 import java.util.function.Consumer;
 
 public class QuiltClientCompatibilityManager extends ClientCompatibilityManager {
 
+    private static final Identifier EARLY_JOIN = Identifier.fromNamespaceAndPath(Voicechat.MODID, "early_join");
+
     private static final Minecraft mc = Minecraft.getInstance();
 
     @Override
     public void onRenderNamePlate(RenderNameplateEvent onRenderNamePlate) {
         RenderEvents.RENDER_NAMEPLATE.register(onRenderNamePlate);
+        ClientPlayConnectionEvents.JOIN.addPhaseOrdering(EARLY_JOIN, Event.DEFAULT_PHASE);
     }
 
     @Override
     public void onRenderHUD(RenderHUDEvent onRenderHUD) {
-        RenderEvents.RENDER_HUD.register(guiGraphics -> onRenderHUD.render(guiGraphics, mc.getTimer().getRealtimeDeltaTicks()));
+        RenderEvents.RENDER_HUD.register(guiGraphics -> onRenderHUD.render(guiGraphics, mc.getDeltaTracker().getRealtimeDeltaTicks()));
     }
 
     @Override
@@ -43,7 +48,12 @@ public class QuiltClientCompatibilityManager extends ClientCompatibilityManager 
 
     @Override
     public void onClientTick(Runnable onClientTick) {
-        ClientTickEvents.START.register(client -> onClientTick.run());
+        ClientTickEvents.START_CLIENT_TICK.register(client -> onClientTick.run());
+    }
+
+    @Override
+    public void onRenderTick(Runnable onRenderTick) {
+        RenderEvents.RENDER_TICK.register(onRenderTick);
     }
 
     @Override
@@ -93,7 +103,8 @@ public class QuiltClientCompatibilityManager extends ClientCompatibilityManager 
 
     @Override
     public void onJoinWorld(Runnable onJoinWorld) {
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> onJoinWorld.run());
+        // Higher priority to prevent this from not firing in case another mod throws an exception in this event
+        ClientPlayConnectionEvents.JOIN.register(EARLY_JOIN, (handler, sender, client) -> onJoinWorld.run());
     }
 
     @Override
@@ -107,8 +118,8 @@ public class QuiltClientCompatibilityManager extends ClientCompatibilityManager 
     }
 
     @Override
-    public void addResourcePackSource(PackRepository packRepository, RepositorySource repositorySource) {
-        IPackRepository repository = (IPackRepository) packRepository;
+    public void addResourcePackSource(RepositorySource repositorySource) {
+        IPackRepository repository = (IPackRepository) mc.getResourcePackRepository();
         repository.voicechat$addSource(repositorySource);
     }
 }

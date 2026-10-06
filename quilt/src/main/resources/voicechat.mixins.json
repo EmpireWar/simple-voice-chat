@@ -8,13 +8,13 @@
   ],
   "client": [
     "ConnectionAccessor",
-    "EntityRendererMixin",
-    "MinecraftMixin",
+    "AvatarRendererMixin",
+    "GameRendererMixin",
+    "IntegratedServerMixin",
     "KeyboardMixin",
+    "MinecraftMixin",
     "MouseMixin",
     "PackRepositoryMixin",
-    "GuiMixin",
-    "IntegratedServerMixin",
     "PlayerEntryMixin"
   ],
   "injectors": {

@@ -8,11 +8,12 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.ContainerObjectSelectionList;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.social.PlayerEntry;
 import net.minecraft.client.gui.screens.social.SocialInteractionsScreen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -28,9 +29,9 @@ import java.util.UUID;
 import java.util.function.Supplier;
 
 @Mixin(PlayerEntry.class)
-public class PlayerEntryMixin {
+public abstract class PlayerEntryMixin extends ContainerObjectSelectionList.Entry<PlayerEntry> {
 
-    private static final ResourceLocation GROUP_ICON = ResourceLocation.fromNamespaceAndPath(Voicechat.MODID, "textures/icons/invite_button.png");
+    private static final Identifier GROUP_ICON = Identifier.fromNamespaceAndPath(Voicechat.MODID, "icons/invite_button");
     private static final Duration TOOLTIP_DELAY = Duration.ofMillis(500L);
 
     @Shadow
@@ -54,10 +55,10 @@ public class PlayerEntryMixin {
     private boolean invited;
 
     @Inject(method = "<init>", at = @At(value = "TAIL"))
-    private void onCreate(Minecraft minecraft, SocialInteractionsScreen socialInteractionsScreen, UUID uUID, String string, Supplier<ResourceLocation> supplier, boolean bl, CallbackInfo ci) {
+    private void onCreate(Minecraft minecraft, SocialInteractionsScreen socialInteractionsScreen, UUID uUID, String string, Supplier<Identifier> supplier, boolean bl, CallbackInfo ci) {
         if (this.children instanceof ArrayList) {
             inviteButton = new ImageButton(0, 0, GROUP_ICON, button -> {
-                minecraft.player.connection.sendUnsignedCommand("voicechat invite %s".formatted(playerName));
+                minecraft.player.connection.sendCommand("voicechat invite %s".formatted(playerName));
                 invited = true;
             });
             inviteButton.setTooltip(Tooltip.create(Component.translatable("message.voicechat.invite_player", playerName)));
@@ -66,8 +67,8 @@ public class PlayerEntryMixin {
         }
     }
 
-    @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/Button;render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V", ordinal = 1))
-    private void render(GuiGraphics poseStack, int index, int top, int left, int width, int height, int mouseX, int mouseY, boolean hovered, float delta, CallbackInfo ci) {
+    @Inject(method = "renderContent", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/Button;render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V", ordinal = 1))
+    private void renderContent(GuiGraphics guiGraphics, int mouseX, int mouseY, boolean hovered, float delta, CallbackInfo ci) {
         if (inviteButton != null && hideButton != null && reportButton != null) {
             if (ClientManager.getPlayerStateManager().getGroupID() == null || !canInvite()) {
                 inviteButton.visible = false;
@@ -75,8 +76,8 @@ public class PlayerEntryMixin {
             }
             inviteButton.visible = true;
             inviteButton.active = !invited;
-            inviteButton.setPosition(left + (width - hideButton.getWidth() - 4 - reportButton.getWidth() - 4) - inviteButton.getWidth() - 4, top + (height - inviteButton.getHeight()) / 2);
-            inviteButton.render(poseStack, mouseX, mouseY, delta);
+            inviteButton.setPosition(getContentX() + (getContentWidth() - hideButton.getWidth() - 4 - reportButton.getWidth() - 4) - inviteButton.getWidth() - 4, getContentY() + (getContentHeight() - inviteButton.getHeight()) / 2);
+            inviteButton.render(guiGraphics, mouseX, mouseY, delta);
         }
     }
 

@@ -48,6 +48,9 @@ public class Server extends Thread {
     public Server(MinecraftServer server) {
         dedicated = server instanceof DedicatedServer;
         if (dedicated) {
+            if (!server.usesAuthentication()) {
+                Voicechat.LOGGER.warn("Running in offline mode - Voice chat encryption is not secure!");
+            }
             int configPort = Voicechat.SERVER_CONFIG.voiceChatPort.get();
             if (configPort < 0) {
                 Voicechat.LOGGER.info("Using the Minecraft servers port as voice chat port");
@@ -443,7 +446,7 @@ public class Server extends Thread {
             source = SoundPacketEvent.SOURCE_PROXIMITY;
         }
 
-        broadcast(ServerWorldUtils.getPlayersInRange(sender.level(), sender.position(), getBroadcastRange(distance), p -> !p.getUUID().equals(sender.getUUID())), soundPacket, sender, senderState, groupId, source);
+        broadcast(ServerPlayerManager.getPlayersInRange(sender.level(), sender.position(), getBroadcastRange(distance), p -> !p.getUUID().equals(sender.getUUID())), soundPacket, sender, senderState, groupId, source);
     }
 
     public void sendSoundPacket(@Nullable ServerPlayer sender, @Nullable PlayerState senderState, ServerPlayer receiver, PlayerState receiverState, @Nullable ClientConnection connection, SoundPacket<?> soundPacket, String source) {

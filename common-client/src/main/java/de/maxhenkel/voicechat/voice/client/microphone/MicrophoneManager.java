@@ -1,5 +1,6 @@
 package de.maxhenkel.voicechat.voice.client.microphone;
 
+import com.sun.jna.Platform;
 import de.maxhenkel.voicechat.Voicechat;
 import de.maxhenkel.voicechat.VoicechatClient;
 import de.maxhenkel.voicechat.voice.client.MicrophoneException;
@@ -13,7 +14,7 @@ public class MicrophoneManager {
 
     public static Microphone createMicrophone() throws MicrophoneException {
         Microphone mic;
-        if (fallback || VoicechatClient.CLIENT_CONFIG.javaMicrophoneImplementation.get()) {
+        if (useJavaImplementation()) {
             mic = createJavaMicrophone();
         } else {
             try {
@@ -41,11 +42,38 @@ public class MicrophoneManager {
     }
 
     public static List<String> deviceNames() {
-        if (fallback || VoicechatClient.CLIENT_CONFIG.javaMicrophoneImplementation.get()) {
+        if (useJavaImplementation()) {
             return JavaxMicrophone.getAllMicrophones();
         } else {
             return ALMicrophone.getAllMicrophones();
         }
+    }
+
+    private static Boolean forceJavaImplementation = null;
+
+    private static boolean shouldForceJavaImplementation() {
+        if (forceJavaImplementation == null) {
+            forceJavaImplementation = !canUseOpenAL();
+            if (forceJavaImplementation) {
+                Voicechat.LOGGER.info("OpenAL microphones are not properly supported on this platform, falling back to Java microphone implementation");
+            }
+        }
+        return forceJavaImplementation;
+    }
+
+    public static boolean canUseOpenAL() {
+        // OpenAL is completely broken on macOS
+        if (Platform.isMac()) {
+            return false;
+        }
+        return true;
+    }
+
+    public static boolean useJavaImplementation() {
+        if (shouldForceJavaImplementation()) {
+            return true;
+        }
+        return fallback || VoicechatClient.CLIENT_CONFIG.javaMicrophoneImplementation.get();
     }
 
 }

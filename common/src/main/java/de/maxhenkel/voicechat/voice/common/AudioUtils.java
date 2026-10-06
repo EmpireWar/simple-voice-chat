@@ -8,7 +8,7 @@ public class AudioUtils {
 
     public static final int SAMPLE_RATE = 48000;
     public static final int FRAME_SIZE = (SAMPLE_RATE / 1000) * 20;
-    public static final int DEFAULT_MAX_PAYLOAD_SIZE = 1024;
+    public static final int MAX_OPUS_PAYLOAD_SIZE = 1275;
     public static final double LOWEST_DB = -127D;
 
     public static short[] bytesToShorts(byte[] bytes) {
@@ -47,6 +47,14 @@ public class AudioUtils {
             floatAudioData[i] = (float) audioData[i] * FLOAT_SHORT_SCALING_FACTOR;
         }
         return floatAudioData;
+    }
+
+    public static short[] stereoFloatsToMonoShortsNormalized(float[] audioData) {
+        short[] shortAudioData = new short[audioData.length / 2];
+        for (int i = 0; i < audioData.length; i += 2) {
+            shortAudioData[i / 2] = (short) Math.max(Math.min((audioData[i] + audioData[i + 1]) / 2F * FLOAT_SHORT_SCALE, FLOAT_CLIP), -FLOAT_SHORT_SCALE);
+        }
+        return shortAudioData;
     }
 
     public static short[] floatsToShorts(float[] floats) {

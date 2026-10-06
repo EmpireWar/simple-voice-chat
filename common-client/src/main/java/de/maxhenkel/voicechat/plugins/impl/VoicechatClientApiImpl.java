@@ -6,18 +6,21 @@ import de.maxhenkel.voicechat.api.audiochannel.ClientEntityAudioChannel;
 import de.maxhenkel.voicechat.api.audiochannel.ClientLocationalAudioChannel;
 import de.maxhenkel.voicechat.api.audiochannel.ClientStaticAudioChannel;
 import de.maxhenkel.voicechat.api.config.ConfigAccessor;
+import de.maxhenkel.voicechat.api.config.VolumeConfigAccessor;
+import de.maxhenkel.voicechat.api.internal.VoicechatClientApiExtension;
 import de.maxhenkel.voicechat.intercompatibility.ClientCompatibilityManager;
 import de.maxhenkel.voicechat.plugins.impl.audiochannel.ClientEntityAudioChannelImpl;
 import de.maxhenkel.voicechat.plugins.impl.audiochannel.ClientLocationalAudioChannelImpl;
 import de.maxhenkel.voicechat.plugins.impl.audiochannel.ClientStaticAudioChannelImpl;
 import de.maxhenkel.voicechat.plugins.impl.config.ConfigAccessorImpl;
+import de.maxhenkel.voicechat.plugins.impl.config.VolumeConfigAccessorImpl;
 import de.maxhenkel.voicechat.voice.client.*;
 import de.maxhenkel.voicechat.voice.common.ClientGroup;
 
 import javax.annotation.Nullable;
 import java.util.UUID;
 
-public class VoicechatClientApiImpl extends VoicechatApiImpl implements VoicechatClientApi {
+public class VoicechatClientApiImpl extends VoicechatApiImpl implements VoicechatClientApi, VoicechatClientApiExtension {
 
     @Deprecated
     public static final VoicechatClientApiImpl INSTANCE = new VoicechatClientApiImpl();
@@ -140,6 +143,11 @@ public class VoicechatClientApiImpl extends VoicechatApiImpl implements Voicecha
     }
 
     @Override
+    public VolumeConfigAccessor getVolumeConfig() {
+        return VolumeConfigAccessorImpl.INSTANCE;
+    }
+
+    @Override
     public void registerClientVolumeCategory(VolumeCategory category) {
         if (!(category instanceof VolumeCategoryImpl c)) {
             throw new IllegalArgumentException("VolumeCategory is not an instance of VolumeCategoryImpl");
@@ -150,5 +158,18 @@ public class VoicechatClientApiImpl extends VoicechatApiImpl implements Voicecha
     @Override
     public double getVoiceChatDistance() {
         return ClientUtils.getDefaultDistanceClient();
+    }
+
+    @Override
+    public void updateAudioLevel(UUID id, @Nullable String category, boolean whispering, short[] audio) {
+        ClientVoicechat client = ClientManager.getClient();
+        if (client != null) {
+            client.getTalkCache().updateLevel(id, category, whispering, audio);
+        }
+    }
+
+    @Override
+    public UUID getOwnId() {
+        return ClientManager.getPlayerStateManager().getOwnID();
     }
 }
